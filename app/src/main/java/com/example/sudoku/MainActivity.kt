@@ -1,61 +1,83 @@
 package com.example.sudoku
 
+import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.ViewTreeObserver
 import android.widget.GridLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
 
-    // ---------- Variables ----------
     private lateinit var gridLayout: GridLayout
-    private lateinit var cellViews: Array<Array<TextView>>
+    private var cellViews: Array<Array<TextView>>? = null
 
-    // ---------- Create ----------
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
+        // Status bar padding
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+
+
+        // Generate Grid
         gridLayout = findViewById(R.id.grid)
 
-        gridLayout.post{
-            createBoard()
-        }
+        val observer = gridLayout.viewTreeObserver
+        observer.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (gridLayout.width > 0 && gridLayout.height > 0 && cellViews == null) {
+
+                    createBoard()
+
+                    // Remove listener so it doesn't run again
+                    gridLayout.post { gridLayout.viewTreeObserver.removeOnGlobalLayoutListener(this) }
+                }
+            }
+        })
     }
 
-    // ---------- Functions ----------
     private fun createBoard() {
         val boardSize = 9
-        cellViews = Array(boardSize){ row ->
-            Array(boardSize) {col ->
-                TextView(this).apply{
-                    layoutParams = GridLayout.LayoutParams().apply{
-                        width = gridLayout.width / boardSize
-                        height = gridLayout.height / boardSize
-                        rowSpec = GridLayout.spec(row)
-                        columnSpec = GridLayout.spec(col)
+        gridLayout.columnCount = boardSize
+        gridLayout.rowCount = boardSize
+
+        gridLayout.removeAllViews()
+
+        val cells = Array(boardSize) { row ->
+            Array(boardSize) { col ->
+                TextView(this).apply {
+                    layoutParams = GridLayout.LayoutParams(
+                        GridLayout.spec(row, 1f),
+                        GridLayout.spec(col, 1f)
+                    ).apply {
+                        width = 0
+                        height = 0
                     }
 
                     gravity = Gravity.CENTER
-                    textSize = 20f
+                    textSize = 14f
                     setBackgroundResource(R.drawable.cell_border)
-
+                    setTextColor(Color.DKGRAY)
+                    text = "$row,$col"
                 }
             }
         }
+        cellViews = cells
 
-
-        // Add TextViews to Grid
-        for(row in 0 until boardSize){
-            for(col in 0 until boardSize){
-                gridLayout.addView(cellViews[row][col])
+        for (row in 0 until boardSize) {
+            for (col in 0 until boardSize) {
+                gridLayout.addView(cells[row][col])
             }
         }
     }
 }
-
-
