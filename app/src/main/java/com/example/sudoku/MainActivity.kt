@@ -5,6 +5,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.GridLayout
@@ -30,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private val numberHighlightMap = mutableMapOf<Int, Int>()
     private var selectedRow = -1
     private var selectedCol = -1
+    private val badgeTextViews = mutableMapOf<Int, TextView>()
 
     // --------------------------------------------------
     // ---------------- On Create
@@ -114,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         }
         cellViews = cells
         setupNumberButtons()
+        updateBadgeCounts()
     }
     private fun selectCell(cell: TextView, row: Int, col: Int) {
 
@@ -148,28 +151,31 @@ class MainActivity : AppCompatActivity() {
         selectedRow = row
         selectedCol = col
     }
-    private fun setupNumberButtons(){
+    private fun setupNumberButtons() {
         val numberButtonsLayout = findViewById<LinearLayout>(R.id.footer)
         if (numberButtonsLayout.childCount > 0) return
 
-        val buttons = (1..9).map { number ->
-            Button(this).apply {
-                text = number.toString()
-                layoutParams = LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-                )
+        for (number in 1..9) {
+            // Inflate the custom layout for the button with a badge
+            val buttonLayout = layoutInflater.inflate(R.layout.number_with_badge, numberButtonsLayout, false)
 
-                // Normal click for entering a number
-                setOnClickListener { onNumberButtonClick(number) }
+            val button = buttonLayout.findViewById<Button>(R.id.number_button)
+            val badge = buttonLayout.findViewById<TextView>(R.id.badge_text_view)
 
-                // NEW: Long click for highlighting
-                setOnLongClickListener {
-                    onNumberButtonLongClick(number)
-                    true // Return true to indicate we've consumed the event
-                }
+
+            // Store the badge reference
+            badgeTextViews[number] = badge
+
+            button.text = number.toString()
+            button.setOnClickListener { onNumberButtonClick(number) }
+            button.setOnLongClickListener {
+                onNumberButtonLongClick(number)
+                true
             }
+
+            // The layout itself has the correct layout_weight, so we add it directly.
+            numberButtonsLayout.addView(buttonLayout)
         }
-        buttons.forEach { numberButtonsLayout.addView(it) }
     }
     private fun onNumberButtonClick(number: Int) {
         // Check if cell is selected and can be edited
@@ -193,6 +199,11 @@ class MainActivity : AppCompatActivity() {
         val backgroundColor = numberHighlightMap[number] ?: Color.WHITE
 
         updateCellBorder(selectedCell!!, selectedRow, selectedCol, true, backgroundColor)
+
+        // Only update badge count for correct guesses
+        if(isCorrect){
+            updateBadgeCounts()
+        }
     }
     private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean, backgroundColor: Int = Color.WHITE ){
         val thick = 6
@@ -266,6 +277,37 @@ class MainActivity : AppCompatActivity() {
                     // Apply the new background color
                     updateCellBorder(cell, r, c, isSelected, colorToApply)
                 }
+            }
+        }
+    }
+    private fun updateBadgeCounts() {
+        if (cellViews == null) return
+
+        val counts = IntArray(10) // index 0 is unused, 1-9 for numbers
+
+        // Count every number currently visible on the grid
+        for (row in 0..8) {
+            for (col in 0..8) {
+                val cellText = cellViews!![row][col].text
+                if (cellText.isNotEmpty()) {
+                    val number = cellText.toString().toInt()
+                    counts[number]++
+                }
+            }
+        }
+
+        // Now, update each badge
+        for (number in 1..9) {
+            val count = counts[number]
+            val badge = badgeTextViews[number]
+
+            if (count == 9) {
+                // If all 9 instances of a number are found, hide the badge.
+                badge?.visibility = View.GONE
+            } else {
+                // Otherwise, show the badge with the number left to find.
+                badge?.visibility = View.VISIBLE
+                badge?.text = (9 - count).toString()
             }
         }
     }
