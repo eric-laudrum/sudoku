@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewTreeObserver
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -15,10 +14,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.github.dhaval2404.colorpicker.ColorPickerDialog
+import com.github.dhaval2404.colorpicker.model.ColorShape
 
 class MainActivity : AppCompatActivity() {
 
-    // Properties
+    // --------------------------------------------------
+    // ---------------- Properties
+    // --------------------------------------------------
     private lateinit var gridLayout: GridLayout
     private var cellViews: Array<Array<TextView>>? = null
     private var puzzleBoard: Array<IntArray>? = null
@@ -27,7 +30,9 @@ class MainActivity : AppCompatActivity() {
     private var selectedRow = -1
     private var selectedCol = -1
 
-    // On Create
+    // --------------------------------------------------
+    // ---------------- On Create
+    // --------------------------------------------------
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -64,7 +69,9 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    // Functions
+    // --------------------------------------------------
+    // ---------------- Functions
+    // --------------------------------------------------
     private fun createBoard() {
         val boardSize = 9
         gridLayout.removeAllViews()
@@ -107,40 +114,62 @@ class MainActivity : AppCompatActivity() {
         cellViews = cells
         setupNumberButtons()
     }
+    private fun selectCell(cell: TextView, row: Int, col: Int) {
 
-    // Handle cell selection
-    private fun selectCell(cell: TextView, row: Int, col: Int){
-        selectedCell?.let{
-            updateCellBorder(it, selectedRow, selectedCol, false)
+        val oldBackground = selectedCell?.background
+        var oldCellBackgroundColor = Color.WHITE
+
+        if (oldBackground is LayerDrawable) {
+            val insetDrawable = oldBackground.getDrawable(1)
+            if (insetDrawable is GradientDrawable) {
+                oldCellBackgroundColor = insetDrawable.color?.defaultColor ?: Color.WHITE
+            }
         }
 
-        // Highlight cell
-        updateCellBorder(cell, row, col, true)
+        selectedCell?.let {
+            updateCellBorder(it, selectedRow, selectedCol, false, oldCellBackgroundColor)
+        }
 
-        // Update state
+        val newBackground = cell.background
+        var newCellBackgroundColor = Color.WHITE // Default to white
+        // Safely cast and extract its color.
+        if (newBackground is LayerDrawable) {
+            val insetDrawable = newBackground.getDrawable(1)
+            if (insetDrawable is GradientDrawable) {
+                newCellBackgroundColor = insetDrawable.color?.defaultColor ?: Color.WHITE
+            }
+        }
+        // Highlight the new cell
+        updateCellBorder(cell, row, col, true, newCellBackgroundColor)
+
+        // Update the state
         selectedCell = cell
         selectedRow = row
         selectedCol = col
     }
-
     private fun setupNumberButtons(){
         val numberButtonsLayout = findViewById<LinearLayout>(R.id.footer)
-        val buttons = (1..9).map{ number ->
-            Button(this).apply{
+        if (numberButtonsLayout.childCount > 0) return
+
+        val buttons = (1..9).map { number ->
+            Button(this).apply {
                 text = number.toString()
                 layoutParams = LinearLayout.LayoutParams(
-                    0, // width
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1f // weight
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
                 )
-                setOnClickListener {
-                    onNumberButtonClick(number)
+
+                // Normal click for entering a number
+                setOnClickListener { onNumberButtonClick(number) }
+
+                // NEW: Long click for highlighting
+                setOnLongClickListener {
+                    onNumberButtonLongClick(number)
+                    true // Return true to indicate we've consumed the event
                 }
             }
         }
         buttons.forEach { numberButtonsLayout.addView(it) }
     }
-
     private fun onNumberButtonClick(number: Int) {
         // Check if cell is selected and can be edited
         if (selectedCell == null || selectedRow == -1) return
@@ -158,8 +187,7 @@ class MainActivity : AppCompatActivity() {
             selectedCell?.setTextColor(Color.RED)
         }
     }
-
-    private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean){
+    private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean, backgroundColor: Int = Color.WHITE ){
         val thick = 6
         val thin = 2
 
@@ -168,24 +196,60 @@ class MainActivity : AppCompatActivity() {
         val bottom = if (row == 8) thick else 0
         val right = if (col == 8) thick else 0
 
-        val baseDrawable = if (isSelected) {
-            // Set highlighted state
-            getDrawable(R.drawable.highlight_cell)?.constantState?.newDrawable()?.mutate() as LayerDrawable
+        val baseDrawable: LayerDrawable
+
+        if (isSelected) {
+            // Mutable drawable to modify layers
+            baseDrawable = getDrawable(R.drawable.highlight_cell)?.constantState?.newDrawable()?.mutate() as LayerDrawable
+            // Set the background color of the first layer
+            (baseDrawable.getDrawable(1) as? GradientDrawable)?.setColor(backgroundColor)
         } else {
-            // For the normal state, we can reuse the same technique as before.
+            // Drawable for normal state
             val border = GradientDrawable().apply {
-                setColor(Color.WHITE)
-                setStroke(thick, Color.BLACK)
+                setColor(Color.BLACK) // The "grout" color
             }
-            val inset = GradientDrawable().apply { setColor(Color.WHITE) }
-            LayerDrawable(arrayOf(border, inset))
+            val inset = GradientDrawable().apply {
+                setColor(backgroundColor) // Cell background color
+            }
+            baseDrawable = LayerDrawable(arrayOf(border, inset))
         }
-        if(isSelected && baseDrawable is LayerDrawable){
+
+        // Apply the insets to set thick/thin lines
+        if (isSelected) {
             baseDrawable.setLayerInset(1, left, top, right, bottom) // Main inset
-            baseDrawable.setLayerInset(2, left + 2, top + 2, right + 2, bottom + 2) // Highlight inset
-        } else if (baseDrawable is LayerDrawable) {
+            // Insets for the blue selection stroke
+            (baseDrawable.getDrawable(2) as? GradientDrawable)?.let {
+                baseDrawable.setLayerInset(2, left + 1, top + 1, right + 1, bottom + 1)
+            }
+        } else {
             baseDrawable.setLayerInset(1, left, top, right, bottom)
         }
+
         cell.background = baseDrawable
+    }
+    private fun onNumberButtonLongClick(number: Int){
+        ColorPickerDialog
+            .Builder(this)
+            .setTitle("Pick Highlight Color")
+            .setColorShape(ColorShape.SQAURE)
+            .setDefaultColor(Color.WHITE)
+            .setColorListener { color, colorHex ->
+                applyHighlightToNumber(number, color)
+            }
+            .show()
+    }
+    private fun applyHighlightToNumber(number: Int, colorToApply: Int) {
+        // Iterate through all 81 cells
+        for (r in 0..8) {
+            for (c in 0..8) {
+                val cell = cellViews?.get(r)?.get(c)
+                if (cell != null && cell.text.toString() == number.toString()) {
+                    // This cell has the target number
+                    val isSelected = (selectedRow == r && selectedCol == c)
+                    // Apply the new background color
+                    updateCellBorder(cell, r, c, isSelected, colorToApply)
+                }
+            }
+        }
     }
 }
