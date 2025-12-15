@@ -6,8 +6,10 @@ import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewTreeObserver
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -78,6 +80,9 @@ class MainActivity : AppCompatActivity() {
                         height = 0
                     }
 
+                    gravity = Gravity.CENTER
+                    textSize = 20f
+
                     // Player input
                     val isEditable = puzzleBoard!![row][col] ==0
                     if(isEditable){
@@ -100,6 +105,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         cellViews = cells
+        setupNumberButtons()
     }
 
     // Handle cell selection
@@ -115,6 +121,42 @@ class MainActivity : AppCompatActivity() {
         selectedCell = cell
         selectedRow = row
         selectedCol = col
+    }
+
+    private fun setupNumberButtons(){
+        val numberButtonsLayout = findViewById<LinearLayout>(R.id.footer)
+        val buttons = (1..9).map{ number ->
+            Button(this).apply{
+                text = number.toString()
+                layoutParams = LinearLayout.LayoutParams(
+                    0, // width
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f // weight
+                )
+                setOnClickListener {
+                    onNumberButtonClick(number)
+                }
+            }
+        }
+        buttons.forEach { numberButtonsLayout.addView(it) }
+    }
+
+    private fun onNumberButtonClick(number: Int) {
+        // Check if cell is selected and can be edited
+        if (selectedCell == null || selectedRow == -1) return
+
+        // Set the number in the TextView
+        selectedCell?.text = number.toString()
+
+        // Validate
+        val isCorrect = solutionBoard!![selectedRow][selectedCol] == number
+        if (isCorrect) {
+            // Set text to blue for user input
+            selectedCell?.setTextColor(Color.BLUE)
+        } else {
+            // Set text to red for incorrect guess
+            selectedCell?.setTextColor(Color.RED)
+        }
     }
 
     private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean){
@@ -138,6 +180,12 @@ class MainActivity : AppCompatActivity() {
             val inset = GradientDrawable().apply { setColor(Color.WHITE) }
             LayerDrawable(arrayOf(border, inset))
         }
+        if(isSelected && baseDrawable is LayerDrawable){
+            baseDrawable.setLayerInset(1, left, top, right, bottom) // Main inset
+            baseDrawable.setLayerInset(2, left + 2, top + 2, right + 2, bottom + 2) // Highlight inset
+        } else if (baseDrawable is LayerDrawable) {
+            baseDrawable.setLayerInset(1, left, top, right, bottom)
+        }
+        cell.background = baseDrawable
     }
-
 }
