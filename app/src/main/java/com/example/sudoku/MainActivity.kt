@@ -2,6 +2,7 @@ package com.example.sudoku
 
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewTreeObserver
@@ -15,11 +16,14 @@ import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
 
-    // Variables
+    // Properties
     private lateinit var gridLayout: GridLayout
     private var cellViews: Array<Array<TextView>>? = null
     private var puzzleBoard: Array<IntArray>? = null
     private var solutionBoard: Array<IntArray>? = null
+    private var selectedCell: TextView? = null
+    private var selectedRow = -1
+    private var selectedCol = -1
 
     // On Create
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,44 +78,22 @@ class MainActivity : AppCompatActivity() {
                         height = 0
                     }
 
-                    gravity = Gravity.CENTER
-                    textSize = 20f
-                    setTextColor(Color.BLACK)
-
-                    val number = puzzleBoard?.get(row)?.get(col) ?: 0
+                    // Player input
+                    val isEditable = puzzleBoard!![row][col] ==0
+                    if(isEditable){
+                        setTextColor(Color.BLUE) // tmp - player entered numbers are blue
+                        setOnClickListener {
+                            selectCell(this, row, col)
+                        }
+                    } else{
+                        setTextColor(Color.BLACK)
+                    }
 
                     // Set text based on the number from the puzzle
+                    val number = puzzleBoard?.get(row)?.get(col) ?: 0
                     text = if (number == 0) "" else number.toString()
 
-                    // Create cell borders
-                    val border = GradientDrawable()
-                    border.setColor(Color.WHITE)
-
-                    // Set line thicknesses
-                    val thick = 6
-                    val thin = 2
-
-                    // Set border thickness for each side
-                    val top = if (row % 3 == 0) thick else thin
-                    val bottom = if (row == 8) thick else 0
-                    val left = if (col % 3 == 0) thick else thin
-                    val right = if (col == 8) thick else 0
-
-                    // Create a LayerDrawable to combine strokes correctly
-                    val inset = GradientDrawable()
-                    inset.setColor(Color.WHITE)
-
-                    val layers = arrayOf(border, inset)
-                    val layerList = android.graphics.drawable.LayerDrawable(layers)
-
-                    // Set the insets to reveal the borders underneath
-                    layerList.setLayerInset(1, left, top, right, bottom)
-
-                    // Set all borders to thick lines
-                    border.setStroke(thick, Color.BLACK)
-
-                    // Apply the final layered drawable as the background
-                    this.background = layerList
+                    updateCellBorder(this, row, col, false)
                 }
                 gridLayout.addView(cell)
                 cell
@@ -119,4 +101,43 @@ class MainActivity : AppCompatActivity() {
         }
         cellViews = cells
     }
+
+    // Handle cell selection
+    private fun selectCell(cell: TextView, row: Int, col: Int){
+        selectedCell?.let{
+            updateCellBorder(it, selectedRow, selectedCol, false)
+        }
+
+        // Highlight cell
+        updateCellBorder(cell, row, col, true)
+
+        // Update state
+        selectedCell = cell
+        selectedRow = row
+        selectedCol = col
+    }
+
+    private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean){
+        val thick = 6
+        val thin = 2
+
+        val top = if (row % 3 == 0) thick else thin
+        val left = if (col % 3 == 0) thick else thin
+        val bottom = if (row == 8) thick else 0
+        val right = if (col == 8) thick else 0
+
+        val baseDrawable = if (isSelected) {
+            // Set highlighted state
+            getDrawable(R.drawable.highlight_cell)?.constantState?.newDrawable()?.mutate() as LayerDrawable
+        } else {
+            // For the normal state, we can reuse the same technique as before.
+            val border = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                setStroke(thick, Color.BLACK)
+            }
+            val inset = GradientDrawable().apply { setColor(Color.WHITE) }
+            LayerDrawable(arrayOf(border, inset))
+        }
+    }
+
 }
