@@ -1,17 +1,23 @@
 <FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"    android:layout_width="0dp"
-    android:layout_height="wrap_content"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:id="@+id/button_container"
+    android:layout_height="60dp"
     android:layout_weight="1"
-    android:clipChildren="false"
-    android:clipToPadding="false"
-    android:padding="4dp">
+    android:layout_margin="2dp"
+    android:background="@drawable/button_background_white"
+    android:clickable="true"
+    android:focusable="true">
 
-    <Button
-        android:id="@+id/number_button"
+    <TextView
+        android:id="@+id/number_text"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
         android:text="1"
-        android:textSize="20sp" />
+        android:textColor="@android:color/black"
+        android:textSize="24sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/badge_text_view"
@@ -19,11 +25,11 @@
         android:layout_height="20dp"
         android:layout_gravity="top|end"
         android:background="@drawable/badge"
+
         android:gravity="center"
         android:text="9"
         android:textColor="@android:color/white"
         android:textSize="12sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:textStyle="bold" />
 
 </FrameLayout>

@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -32,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedRow = -1
     private var selectedCol = -1
     private val badgeTextViews = mutableMapOf<Int, TextView>()
+    private val numberButtonContainers = mutableMapOf<Int, FrameLayout>()
 
     // --------------------------------------------------
     // ---------------- On Create
@@ -118,6 +120,34 @@ class MainActivity : AppCompatActivity() {
         setupNumberButtons()
         updateBadgeCounts()
     }
+    private fun setupNumberButtons() {
+        val numberButtonsLayout = findViewById<LinearLayout>(R.id.footer)
+        if (numberButtonsLayout.childCount > 0) return
+
+        for (number in 1..9) {
+            // Inflate the custom layout for the button with a badge
+            val buttonLayout = layoutInflater.inflate(R.layout.number_with_badge, numberButtonsLayout, false)
+
+            val container = buttonLayout.findViewById<FrameLayout>(R.id.button_container)
+            val numberText = buttonLayout.findViewById<TextView>(R.id.number_text)
+            val badge = buttonLayout.findViewById<TextView>(R.id.badge_text_view)
+
+            numberButtonContainers[number] = container
+
+            // Store the badge reference
+            badgeTextViews[number] = badge
+
+            // Set text for number
+            numberText.text = number.toString()
+
+            container.setOnClickListener { onNumberButtonClick(number) }
+            container.setOnLongClickListener {
+                onNumberButtonLongClick(number)
+                true
+            }
+            numberButtonsLayout.addView(buttonLayout)
+        }
+    }
     private fun selectCell(cell: TextView, row: Int, col: Int) {
 
         val oldBackground = selectedCell?.background
@@ -150,32 +180,6 @@ class MainActivity : AppCompatActivity() {
         selectedCell = cell
         selectedRow = row
         selectedCol = col
-    }
-    private fun setupNumberButtons() {
-        val numberButtonsLayout = findViewById<LinearLayout>(R.id.footer)
-        if (numberButtonsLayout.childCount > 0) return
-
-        for (number in 1..9) {
-            // Inflate the custom layout for the button with a badge
-            val buttonLayout = layoutInflater.inflate(R.layout.number_with_badge, numberButtonsLayout, false)
-
-            val button = buttonLayout.findViewById<Button>(R.id.number_button)
-            val badge = buttonLayout.findViewById<TextView>(R.id.badge_text_view)
-
-
-            // Store the badge reference
-            badgeTextViews[number] = badge
-
-            button.text = number.toString()
-            button.setOnClickListener { onNumberButtonClick(number) }
-            button.setOnLongClickListener {
-                onNumberButtonLongClick(number)
-                true
-            }
-
-            // The layout itself has the correct layout_weight, so we add it directly.
-            numberButtonsLayout.addView(buttonLayout)
-        }
     }
     private fun onNumberButtonClick(number: Int) {
         // Check if cell is selected and can be edited
@@ -266,8 +270,16 @@ class MainActivity : AppCompatActivity() {
             numberHighlightMap[number] = colorToApply
         }
 
+        // Update background of the number buttons
+        val buttonContainer = numberButtonContainers[number]
+        if(colorToApply == Color.WHITE){
+            buttonContainer?.setBackgroundResource(R.drawable.button_background_white)
+        } else{
+            buttonContainer?.setBackgroundColor(colorToApply)
+        }
 
-        // Iterate through all 81 cells
+
+        // Apply to all 81 cells
         for (r in 0..8) {
             for (c in 0..8) {
                 val cell = cellViews?.get(r)?.get(c)
