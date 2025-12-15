@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private var puzzleBoard: Array<IntArray>? = null
     private var solutionBoard: Array<IntArray>? = null
     private var selectedCell: TextView? = null
+    private val numberHighlightMap = mutableMapOf<Int, Int>()
     private var selectedRow = -1
     private var selectedCol = -1
 
@@ -174,11 +175,13 @@ class MainActivity : AppCompatActivity() {
         // Check if cell is selected and can be edited
         if (selectedCell == null || selectedRow == -1) return
 
+        val isCorrect = solutionBoard!![selectedRow][selectedCol] == number
         // Set the number in the TextView
         selectedCell?.text = number.toString()
 
-        // Validate
-        val isCorrect = solutionBoard!![selectedRow][selectedCol] == number
+        // Set text color based on correctness
+        selectedCell?.setTextColor(if (isCorrect) Color.BLUE else Color.RED)
+
         if (isCorrect) {
             // Set text to blue for user input
             selectedCell?.setTextColor(Color.BLUE)
@@ -186,6 +189,10 @@ class MainActivity : AppCompatActivity() {
             // Set text to red for incorrect guess
             selectedCell?.setTextColor(Color.RED)
         }
+
+        val backgroundColor = numberHighlightMap[number] ?: Color.WHITE
+
+        updateCellBorder(selectedCell!!, selectedRow, selectedCol, true, backgroundColor)
     }
     private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean, backgroundColor: Int = Color.WHITE ){
         val thick = 6
@@ -239,6 +246,16 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
     private fun applyHighlightToNumber(number: Int, colorToApply: Int) {
+        // Save choice
+        if (colorToApply == Color.WHITE) {
+            // Remove highlight
+            numberHighlightMap.remove(number)
+        } else {
+            // Save the number-to-color mapping.
+            numberHighlightMap[number] = colorToApply
+        }
+
+
         // Iterate through all 81 cells
         for (r in 0..8) {
             for (c in 0..8) {
