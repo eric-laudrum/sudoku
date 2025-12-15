@@ -18,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     // Variables
     private lateinit var gridLayout: GridLayout
     private var cellViews: Array<Array<TextView>>? = null
+    private var puzzleBoard: Array<IntArray>? = null
     private var solutionBoard: Array<IntArray>? = null
 
     // On Create
@@ -26,6 +27,9 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
+        // Get grid view
+        gridLayout = findViewById(R.id.grid)
+
         // Status bar padding
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -33,19 +37,22 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-
-        // Generate Grid
-        gridLayout = findViewById(R.id.grid)
-
-        val observer = gridLayout.viewTreeObserver
-        observer.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+        // Use a ViewTreeObserver to wait for the layout to be measured
+        gridLayout.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
+                // Verify board hasn't already been created
                 if (gridLayout.width > 0 && gridLayout.height > 0 && cellViews == null) {
 
+                    // Generate the puzzle and solution
+                    val (puzzle, solution) = GameGenerator().generatePuzzle()
+                    puzzleBoard = puzzle
+                    solutionBoard = solution
+
+                    // Build the UI based on data just created.
                     createBoard()
 
-                    // Remove listener to stop from running again
-                    gridLayout.post { gridLayout.viewTreeObserver.removeOnGlobalLayoutListener(this) }
+                    // Remove the listener so this only runs once
+                    gridLayout.viewTreeObserver.removeOnGlobalLayoutListener(this)
                 }
             }
         })
@@ -53,13 +60,7 @@ class MainActivity : AppCompatActivity() {
 
     // Functions
     private fun createBoard() {
-        // Generate solution
-        solutionBoard = GameGenerator().generate()
-
         val boardSize = 9
-        gridLayout.columnCount = boardSize
-
-        gridLayout.rowCount = boardSize
         gridLayout.removeAllViews()
 
         val cells = Array(boardSize) { row ->
@@ -77,7 +78,9 @@ class MainActivity : AppCompatActivity() {
                     textSize = 20f
                     setTextColor(Color.BLACK)
 
-                    val number = solutionBoard!![row][col]
+                    val number = puzzleBoard?.get(row)?.get(col) ?: 0
+
+                    // Set text based on the number from the puzzle
                     text = if (number == 0) "" else number.toString()
 
                     // Create cell borders
