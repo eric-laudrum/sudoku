@@ -275,18 +275,23 @@ class MainActivity : AppCompatActivity() {
         if(colorToApply == Color.WHITE){
             buttonContainer?.setBackgroundResource(R.drawable.button_background_white)
         } else{
-            buttonContainer?.setBackgroundColor(colorToApply)
-        }
+            val drawable = buttonContainer?.background?.mutate()
 
+            if(drawable is android.graphics.drawable.RippleDrawable){
+                val backgroundShape = drawable.getDrawable(1)
+
+                if(backgroundShape is GradientDrawable){
+                    backgroundShape.setColor(colorToApply)
+                }
+            }
+        }
 
         // Apply to all 81 cells
         for (r in 0..8) {
             for (c in 0..8) {
                 val cell = cellViews?.get(r)?.get(c)
                 if (cell != null && cell.text.toString() == number.toString()) {
-                    // This cell has the target number
                     val isSelected = (selectedRow == r && selectedCol == c)
-                    // Apply the new background color
                     updateCellBorder(cell, r, c, isSelected, colorToApply)
                 }
             }
