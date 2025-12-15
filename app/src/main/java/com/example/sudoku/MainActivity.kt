@@ -18,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     // Variables
     private lateinit var gridLayout: GridLayout
     private var cellViews: Array<Array<TextView>>? = null
+    private var solutionBoard: Array<IntArray>? = null
 
     // On Create
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +44,7 @@ class MainActivity : AppCompatActivity() {
 
                     createBoard()
 
-                    // Remove listener so it doesn't run again
+                    // Remove listener to stop from running again
                     gridLayout.post { gridLayout.viewTreeObserver.removeOnGlobalLayoutListener(this) }
                 }
             }
@@ -52,11 +53,14 @@ class MainActivity : AppCompatActivity() {
 
     // Functions
     private fun createBoard() {
+        // Generate solution
+        solutionBoard = GameGenerator().generate()
+
         val boardSize = 9
         gridLayout.columnCount = boardSize
+
         gridLayout.rowCount = boardSize
         gridLayout.removeAllViews()
-
 
         val cells = Array(boardSize) { row ->
             Array(boardSize) { col ->
@@ -72,25 +76,25 @@ class MainActivity : AppCompatActivity() {
                     gravity = Gravity.CENTER
                     textSize = 20f
                     setTextColor(Color.BLACK)
-                    text = "$row,$col" // For debugging
 
-                    // --- Create cell borders ---
+                    val number = solutionBoard!![row][col]
+                    text = if (number == 0) "" else number.toString()
 
+                    // Create cell borders
                     val border = GradientDrawable()
-                    border.setColor(Color.WHITE) // Cell background color
+                    border.setColor(Color.WHITE)
 
-                    // Line thicknesses
-                    val thick = 6 // Use a more pronounced thickness in pixels
-                    val thin = 2  // A clearly thinner line
+                    // Set line thicknesses
+                    val thick = 6
+                    val thin = 2
 
-                    // Determine border thickness for each side
+                    // Set border thickness for each side
                     val top = if (row % 3 == 0) thick else thin
-                    val bottom = if (row == 8) thick else 0 // Only top/left matter for inner lines
+                    val bottom = if (row == 8) thick else 0
                     val left = if (col % 3 == 0) thick else thin
                     val right = if (col == 8) thick else 0
 
                     // Create a LayerDrawable to combine strokes correctly
-                    // We draw a full "thick" border and then cover it with a white inset shape
                     val inset = GradientDrawable()
                     inset.setColor(Color.WHITE)
 
@@ -100,14 +104,14 @@ class MainActivity : AppCompatActivity() {
                     // Set the insets to reveal the borders underneath
                     layerList.setLayerInset(1, left, top, right, bottom)
 
-                    // Set the stroke on the base layer
-                    border.setStroke(thick, Color.BLACK) // All borders start thick
+                    // Set all borders to thick lines
+                    border.setStroke(thick, Color.BLACK)
 
                     // Apply the final layered drawable as the background
                     this.background = layerList
                 }
                 gridLayout.addView(cell)
-                cell // Return cell for the array
+                cell
             }
         }
         cellViews = cells
