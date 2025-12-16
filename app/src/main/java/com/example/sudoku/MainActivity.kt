@@ -5,6 +5,8 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.Button
@@ -35,6 +37,10 @@ class MainActivity : AppCompatActivity() {
     private val badgeTextViews = mutableMapOf<Int, TextView>()
     private val numberButtonContainers = mutableMapOf<Int, FrameLayout>()
 
+
+    private enum class HighlightMode { ALL, ACTIVE_CELL }
+    private var highlightMode = HighlightMode.ALL
+
     // --------------------------------------------------
     // ---------------- On Create
     // --------------------------------------------------
@@ -42,6 +48,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        // Set toolbar to the action bar
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
 
         // Get grid view
         gridLayout = findViewById(R.id.grid)
@@ -74,6 +84,37 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean{
+
+        menuInflater.inflate(R.menu.settings_menu, menu)
+
+        val highlightToggle = menu.findItem(R.id.action_toggle_highlight)
+        highlightToggle.isChecked = (highlightMode == HighlightMode.ALL)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        // Handle when a menu item is clicked.
+        return when (item.itemId) {
+            R.id.action_toggle_highlight -> {
+                // Toggle the checked state
+                item.isChecked = !item.isChecked
+
+                // Update our mode property based on the new state
+                highlightMode = if (item.isChecked) {
+                    HighlightMode.ALL
+                } else {
+                    HighlightMode.ACTIVE_CELL
+                }
+
+                // Refresh the entire grid to apply the new highlight style
+                refreshAllCellHighlights()
+
+                true // Indicate we've handled the click
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
     // --------------------------------------------------
     // ---------------- Functions
     // --------------------------------------------------
@@ -94,6 +135,11 @@ class MainActivity : AppCompatActivity() {
 
                     gravity = Gravity.CENTER
                     textSize = 20f
+
+                    // Apply listener to every cell
+                    setOnClickListener {
+                        selectCell(this, row, col)
+                    }
 
                     // Player input
                     val isEditable = puzzleBoard!![row][col] ==0
@@ -150,36 +196,13 @@ class MainActivity : AppCompatActivity() {
     }
     private fun selectCell(cell: TextView, row: Int, col: Int) {
 
-        val oldBackground = selectedCell?.background
-        var oldCellBackgroundColor = Color.WHITE
-
-        if (oldBackground is LayerDrawable) {
-            val insetDrawable = oldBackground.getDrawable(1)
-            if (insetDrawable is GradientDrawable) {
-                oldCellBackgroundColor = insetDrawable.color?.defaultColor ?: Color.WHITE
-            }
-        }
-
-        selectedCell?.let {
-            updateCellBorder(it, selectedRow, selectedCol, false, oldCellBackgroundColor)
-        }
-
-        val newBackground = cell.background
-        var newCellBackgroundColor = Color.WHITE // Default to white
-        // Safely cast and extract its color.
-        if (newBackground is LayerDrawable) {
-            val insetDrawable = newBackground.getDrawable(1)
-            if (insetDrawable is GradientDrawable) {
-                newCellBackgroundColor = insetDrawable.color?.defaultColor ?: Color.WHITE
-            }
-        }
-        // Highlight the new cell
-        updateCellBorder(cell, row, col, true, newCellBackgroundColor)
-
-        // Update the state
+        // Update state to the newly selected cell
         selectedCell = cell
         selectedRow = row
         selectedCol = col
+
+        // Refresh the grid highlights
+        refreshAllCellHighlights()
     }
     private fun onNumberButtonClick(number: Int) {
         // Check if cell is selected and can be edited
@@ -194,18 +217,6 @@ class MainActivity : AppCompatActivity() {
 
         if (isCorrect) {
             // Set text to blue for user input
-            selectedCell?.setTextColor(Color.BLUE)
-        } else {
-            // Set text to red for incorrect guess
-            selectedCell?.setTextColor(Color.RED)
-        }
-
-        val backgroundColor = numberHighlightMap[number] ?: Color.WHITE
-
-        updateCellBorder(selectedCell!!, selectedRow, selectedCol, true, backgroundColor)
-
-        // Only update badge count for correct guesses
-        if(isCorrect){
             updateBadgeCounts()
         }
     }
@@ -286,13 +297,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Apply to all 81 cells
-        for (r in 0..8) {
-            for (c in 0..8) {
-                val cell = cellViews?.get(r)?.get(c)
-                if (cell != null && cell.text.toString() == number.toString()) {
-                    val isSelected = (selectedRow == r && selectedCol == c)
-                    updateCellBorder(cell, r, c, isSelected, colorToApply)
+        if(highlightMode == HighlightMode.ALL){
+
+            // Apply to all 81 cells
+            for (r in 0..8) {
+                for (c in 0..8) {
+                    val cell = cellViews?.get(r)?.get(c)
+                    if (cell != null && cell.text.toString() == number.toString()) {
+                        val isSelected = (selectedRow == r && selectedCol == c)
+                        updateCellBorder(cell, r, c, isSelected, colorToApply)
+                    }
                 }
             }
         }
@@ -325,6 +339,36 @@ class MainActivity : AppCompatActivity() {
                 // Otherwise, show the badge with the number left to find.
                 badge?.visibility = View.VISIBLE
                 badge?.text = (9 - count).toString()
+            }
+        }
+    }
+    private fun refreshAllCellHighlights() {
+        if (cellViews == null) return
+
+        for (r in 0..8) {
+            for (c in 0..8) {
+                val cell = cellViews!![r][c]
+                val cellText = cell.text.toString()
+
+                var colorToApply = Color.WHITE // Default to no highlight
+
+                if (cellText.isNotEmpty()) {
+                    val number = cellText.toInt()
+
+                    if (highlightMode == HighlightMode.ALL) {
+                        // "All" mode: Get the color for this number, if it exists.
+                        colorToApply = numberHighlightMap[number] ?: Color.WHITE
+                    } else { // ACTIVE_CELL mode
+                        // Only apply color if this cell's number matches the selected cell's number.
+                        val selectedCellText = selectedCell?.text?.toString()
+                        if (selectedCellText?.isNotEmpty() == true && number == selectedCellText.toInt()) {
+                            colorToApply = numberHighlightMap[number] ?: Color.WHITE
+                        }
+                    }
+                }
+
+                val isSelected = (selectedRow == r && selectedCol == c)
+                updateCellBorder(cell, r, c, isSelected, colorToApply)
             }
         }
     }

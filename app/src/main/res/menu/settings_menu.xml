@@ -1,0 +1,11 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_toggle_highlight"
+        android:title="Highlight All Numbers"
+        android:checkable="true"
+        android:checked="true"
+        app:showAsAction="never" />
+
+</menu>
