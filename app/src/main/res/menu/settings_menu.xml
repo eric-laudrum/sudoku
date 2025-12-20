@@ -5,28 +5,38 @@
     <group
         android:id="@+id/highlight_mode_group"
         android:checkableBehavior="single">
-        <item
-            android:id="@+id/action_highlight_all_numbers"
-            android:title="Highlight All Numbers"
-
-            app:showAsAction="never" />
 
         <item
             android:id="@+id/action_highlight_active_cell_numbers"
-            android:title="Highlight Active Number"
+            android:title="Highlight Active Number Only"
             android:checked="true"
+            app:showAsAction="never" />
+
+        <item
+            android:id="@+id/action_highlight_all_numbers"
+            android:title="Highlight All Numbers"
             app:showAsAction="never" />
 
     </group>
 
     <item
         android:id="@+id/action_set_single_highlight_color"
-        android:title="Set Single Highlight Color"
+        android:title="Set Main Highlight Colour"
         app:showAsAction="never"/>
 
     <item
         android:id="@+id/action_change_background_color"
-        android:title="Change Background Colour"
+        android:title="Set Background Colour"
         app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_set_difficulty"
+        android:title="Set Difficulty"
+        app:showAsAction="never"/>
+
+    <item
+        android:id="@+id/action_new_game"
+        android:title="New Game"
+        app:showAsAction="never" />
 
 </menu>

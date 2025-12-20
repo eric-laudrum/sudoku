@@ -15,12 +15,14 @@ import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.github.dhaval2404.colorpicker.ColorPickerDialog
 import com.github.dhaval2404.colorpicker.model.ColorShape
+import com.google.android.material.slider.Slider
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,7 +41,7 @@ class MainActivity : AppCompatActivity() {
     private var activeNumber = -1
     private val badgeTextViews = mutableMapOf<Int, TextView>()
     private val numberButtonContainers = mutableMapOf<Int, FrameLayout>()
-
+    private var difficultyLevel = 0
 
     private enum class HighlightMode { ALL, ACTIVE_CELL }
     private var highlightMode = HighlightMode.ALL
@@ -53,9 +55,10 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
-        // Load and apply the saved background color
+        // Load and apply all saved preferences
         loadAndApplyBackgroundColor()
         loadSingleHighlightColor()
+        loadDifficulty()
 
         // Set toolbar to the action bar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
@@ -76,15 +79,7 @@ class MainActivity : AppCompatActivity() {
             override fun onGlobalLayout() {
                 // Verify board hasn't already been created
                 if (gridLayout.width > 0 && gridLayout.height > 0 && cellViews == null) {
-
-                    // Generate the puzzle and solution
-                    val (puzzle, solution) = GameGenerator().generatePuzzle()
-                    puzzleBoard = puzzle
-                    solutionBoard = solution
-
-                    // Build the UI based on data just created.
-                    createBoard()
-
+                    startNewGame()
                     // Remove the listener so this only runs once
                     gridLayout.viewTreeObserver.removeOnGlobalLayoutListener(this)
                 }
@@ -110,6 +105,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
+            R.id.action_new_game -> {
+                showNewGameConfirmation()
+                return true
+            }
+
             // --- Highlight Mode Changed to "Highlight All Numbers" ---
             R.id.action_highlight_all_numbers -> {
                 item.isChecked = true // The group ensures the other is unchecked.
@@ -139,8 +139,54 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            R.id.action_set_difficulty -> {
+                showDifficultySlider()
+                return true
+            }
+
             else -> return super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun showNewGameConfirmation() {
+        AlertDialog.Builder(this)
+            .setTitle("Start New Game?")
+            .setMessage("Are you sure you want to start a new game? All current progress will be lost.")
+            .setPositiveButton("Yes") { _, _ ->
+                startNewGame()
+            }
+            .setNegativeButton("No", null)
+            .show()
+    }
+
+    private fun showDifficultySlider() {
+        val slider = Slider(this).apply {
+            valueFrom = 0f
+            valueTo = 10f
+            stepSize = 1f
+            value = difficultyLevel.toFloat()
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Set Difficulty")
+            .setView(slider)
+            .setPositiveButton("OK") { _, _ ->
+                val newDifficulty = slider.value.toInt()
+                difficultyLevel = newDifficulty
+                saveDifficulty(newDifficulty)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun saveDifficulty(level: Int) {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        prefs.edit { putInt("difficulty_level", level) }
+    }
+
+    private fun loadDifficulty() {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        difficultyLevel = prefs.getInt("difficulty_level", 0)
     }
 
     private fun showBackgroundColorPicker() {
@@ -182,7 +228,7 @@ class MainActivity : AppCompatActivity() {
 
                 // When a single color is chosen, switch to ACTIVE_CELL mode
                 highlightMode = HighlightMode.ACTIVE_CELL
-                invalidateOptionsMenu() // This updates the menu to show the correct checked item
+                invalidateOptionsMenu() // Update the menu to show the correct checked item
 
                 // Update the UI to reflect the change
                 updateNumberButtonHighlights()
@@ -199,6 +245,16 @@ class MainActivity : AppCompatActivity() {
     private fun loadSingleHighlightColor() {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
         singleHighlightColor = prefs.getInt("single_highlight_color", Color.YELLOW)
+    }
+
+    private fun startNewGame() {
+        // Generate the puzzle and solution
+        val (puzzle, solution) = GameGenerator().generatePuzzle(difficultyLevel)
+        puzzleBoard = puzzle
+        solutionBoard = solution
+
+        // Build the UI based on data just created.
+        createBoard()
     }
 
     // --------------------------------------------------
