@@ -1,5 +1,6 @@
 package com.example.sudoku
 
+import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -9,13 +10,13 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewTreeObserver
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.github.dhaval2404.colorpicker.ColorPickerDialog
@@ -40,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private enum class HighlightMode { ALL, ACTIVE_CELL }
     private var highlightMode = HighlightMode.ALL
+    private var isHighlightingEnabled = true
 
     // --------------------------------------------------
     // ---------------- On Create
@@ -48,6 +50,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        // Load and apply the saved background color
+        loadAndApplyBackgroundColor()
 
         // Set toolbar to the action bar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
@@ -88,33 +93,79 @@ class MainActivity : AppCompatActivity() {
 
         menuInflater.inflate(R.menu.settings_menu, menu)
 
-        val highlightToggle = menu.findItem(R.id.action_toggle_highlight)
+        // Initial state of master toggle
+        val highlightToggle = menu.findItem(R.id.action_highlight_all_numbers)
         highlightToggle.isChecked = (highlightMode == HighlightMode.ALL)
+
+        // Set initial state of the radio button group
+        val modeToSelect = if (highlightMode == HighlightMode.ALL) {
+            R.id.action_highlight_all_numbers
+        } else {
+            R.id.action_highlight_active_cell_numbers
+        }
+        val highlightModeItem = menu.findItem(modeToSelect)
+        highlightModeItem?.isChecked = true
+
+
+        // Return true to display the menu
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle when a menu item is clicked.
-        return when (item.itemId) {
-            R.id.action_toggle_highlight -> {
-                // Toggle the checked state
-                item.isChecked = !item.isChecked
-
-                // Update our mode property based on the new state
-                highlightMode = if (item.isChecked) {
-                    HighlightMode.ALL
-                } else {
-                    HighlightMode.ACTIVE_CELL
-                }
-
-                // Refresh the entire grid to apply the new highlight style
-                refreshAllCellHighlights()
-
-                true // Indicate we've handled the click
+        when (item.itemId) {
+            // --- Highlight Mode Changed to "Highlight All Numbers" ---
+            R.id.action_highlight_all_numbers -> {
+                item.isChecked = true // The group ensures the other is unchecked.
+                highlightMode = HighlightMode.ALL
+                refreshAllCellHighlights() // Redraw the grid with the new mode.
+                return true
             }
-            else -> super.onOptionsItemSelected(item)
+
+            // --- Highlight Mode Changed to "Highlight Active Number" ---
+            R.id.action_highlight_active_cell_numbers -> {
+                item.isChecked = true
+                highlightMode = HighlightMode.ACTIVE_CELL
+                refreshAllCellHighlights() // Redraw the grid with the new mode.
+                return true
+            }
+
+            // --- "Change Background Color" was clicked ---
+            R.id.action_change_background_color -> {
+                showBackgroundColorPicker()
+                return true
+            }
+
+            else -> return super.onOptionsItemSelected(item)
         }
     }
+
+    private fun showBackgroundColorPicker() {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        val savedColor = prefs.getInt("background_color", Color.WHITE)
+
+        ColorPickerDialog.Builder(this)
+            .setTitle("Choose Background Color")
+            .setColorShape(ColorShape.SQAURE)
+            .setDefaultColor(savedColor)
+            .setColorListener { selectedColor, _ ->
+                val gameBackground = findViewById<View>(R.id.main)
+                gameBackground.setBackgroundColor(selectedColor)
+                saveBackgroundColorPreference(selectedColor)
+            }
+            .show()
+    }
+
+    private fun saveBackgroundColorPreference(color: Int) {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        prefs.edit { putInt("background_color", color) }
+    }
+
+    private fun loadAndApplyBackgroundColor() {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        val backgroundColor = prefs.getInt("background_color", Color.WHITE) // Default to white
+        findViewById<View>(R.id.main).setBackgroundColor(backgroundColor)
+    }
+
     // --------------------------------------------------
     // ---------------- Functions
     // --------------------------------------------------
@@ -345,28 +396,35 @@ class MainActivity : AppCompatActivity() {
     private fun refreshAllCellHighlights() {
         if (cellViews == null) return
 
+        val selectedCellText = selectedCell?.text?.toString()
+        val selectedNumber = if (selectedCellText?.isNotEmpty() == true) selectedCellText.toInt() else -1 // -1 means no number is selected
+
         for (r in 0..8) {
             for (c in 0..8) {
                 val cell = cellViews!![r][c]
                 val cellText = cell.text.toString()
 
-                var colorToApply = Color.WHITE // Default to no highlight
+                var colorToApply = Color.WHITE // Default: no highlight
 
-                if (cellText.isNotEmpty()) {
-                    val number = cellText.toInt()
+                // Check Highlighting is ON
+                if (isHighlightingEnabled && cellText.isNotEmpty()) {
+                    val numberInCell = cellText.toInt()
 
-                    if (highlightMode == HighlightMode.ALL) {
-                        // "All" mode: Get the color for this number, if it exists.
-                        colorToApply = numberHighlightMap[number] ?: Color.WHITE
-                    } else { // ACTIVE_CELL mode
-                        // Only apply color if this cell's number matches the selected cell's number.
-                        val selectedCellText = selectedCell?.text?.toString()
-                        if (selectedCellText?.isNotEmpty() == true && number == selectedCellText.toInt()) {
-                            colorToApply = numberHighlightMap[number] ?: Color.WHITE
+                    // Check which mode is active
+                    when (highlightMode) {
+                        // All Numbers: Highlight every number on the board
+                        HighlightMode.ALL -> {
+                            colorToApply = numberHighlightMap[numberInCell] ?: Color.WHITE
+                        }
+
+                        // "ACTIVE_CELL": Highlight only numbers that match the selected one
+                        HighlightMode.ACTIVE_CELL -> {
+                            if (selectedNumber != -1 && numberInCell == selectedNumber) {
+                                colorToApply = numberHighlightMap[numberInCell] ?: Color.WHITE
+                            }
                         }
                     }
                 }
-
                 val isSelected = (selectedRow == r && selectedCol == c)
                 updateCellBorder(cell, r, c, isSelected, colorToApply)
             }
