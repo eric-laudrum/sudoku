@@ -20,9 +20,13 @@
     </group>
 
     <item
+        android:id="@+id/action_set_single_highlight_color"
+        android:title="Set Single Highlight Color"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_change_background_color"
         android:title="Change Background Colour"
         app:showAsAction="never"/>
-
 
 </menu>
