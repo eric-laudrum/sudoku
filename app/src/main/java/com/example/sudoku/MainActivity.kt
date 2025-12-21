@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +24,9 @@ import androidx.core.view.WindowInsetsCompat
 import com.github.dhaval2404.colorpicker.ColorPickerDialog
 import com.github.dhaval2404.colorpicker.model.ColorShape
 import com.google.android.material.slider.Slider
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import android.widget.Button
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,6 +46,9 @@ class MainActivity : AppCompatActivity() {
     private val badgeTextViews = mutableMapOf<Int, TextView>()
     private val numberButtonContainers = mutableMapOf<Int, FrameLayout>()
     private var difficultyLevel = 0
+    private lateinit var completionMessages: MutableList<String>
+    private var currentCompletionMessageIndex = 0
+    private lateinit var completionTextView: TextView
 
     private enum class HighlightMode { ALL, ACTIVE_CELL }
     private var highlightMode = HighlightMode.ALL
@@ -55,17 +62,24 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
+        completionTextView = findViewById(R.id.completion_text)
+
         // Load and apply all saved preferences
         loadAndApplyBackgroundColor()
         loadSingleHighlightColor()
         loadDifficulty()
+        loadCompletionMessages()
 
         // Set toolbar to the action bar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
         // Get grid view
-        gridLayout = findViewById(R.id.grid)
+        gridLayout = findViewById<GridLayout>(R.id.grid)
+
+        // Setup eraser button
+        val eraserButton = findViewById<Button>(R.id.eraser_button)
+        eraserButton.setOnClickListener { onEraseButtonClick() }
 
         // Status bar padding
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
@@ -110,7 +124,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            // --- Highlight Mode Changed to "Highlight All Numbers" ---
+            // Highlight All Numbers
             R.id.action_highlight_all_numbers -> {
                 item.isChecked = true // The group ensures the other is unchecked.
                 highlightMode = HighlightMode.ALL
@@ -119,7 +133,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            // --- Highlight Mode Changed to "Highlight Active Number" ---
+            // Highlight Active Number
             R.id.action_highlight_active_cell_numbers -> {
                 item.isChecked = true
                 highlightMode = HighlightMode.ACTIVE_CELL
@@ -133,7 +147,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            // --- "Change Background Color" was clicked ---
+            // Change Background Color
             R.id.action_change_background_color -> {
                 showBackgroundColorPicker()
                 return true
@@ -146,6 +160,51 @@ class MainActivity : AppCompatActivity() {
 
             else -> return super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun loadCompletionMessages() {
+        try {
+            val inputStream = resources.openRawResource(R.raw.completion_messages)
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            completionMessages = reader.readLines().toMutableList()
+            completionMessages.shuffle()
+            currentCompletionMessageIndex = 0
+        } catch (e: Exception) {
+            completionMessages = mutableListOf("Congratulations!")
+        }
+    }
+
+    private fun showCompletionMessage() {
+        if (::completionMessages.isInitialized.not() || completionMessages.isEmpty()) {
+            return
+        }
+
+        val message = completionMessages[currentCompletionMessageIndex]
+
+        currentCompletionMessageIndex++
+        if (currentCompletionMessageIndex >= completionMessages.size) {
+            completionMessages.shuffle()
+            currentCompletionMessageIndex = 0
+        }
+
+        completionTextView.text = message
+        completionTextView.visibility = View.VISIBLE
+    }
+
+    private fun checkGameCompletion() {
+        if (cellViews == null || solutionBoard == null) return
+
+        for (r in 0..8) {
+            for (c in 0..8) {
+                val cell = cellViews!![r][c]
+                if (cell.text.isNullOrEmpty() || cell.text.toString().toInt() != solutionBoard!![r][c]) {
+                    return // Found an empty or incorrect cell, so the game isn't over.
+                }
+            }
+        }
+
+        // If this is reached, the board is complete and correct.
+        showCompletionMessage()
     }
 
     private fun showNewGameConfirmation() {
@@ -228,7 +287,7 @@ class MainActivity : AppCompatActivity() {
 
                 // When a single color is chosen, switch to ACTIVE_CELL mode
                 highlightMode = HighlightMode.ACTIVE_CELL
-                invalidateOptionsMenu() // Update the menu to show the correct checked item
+                invalidateOptionsMenu() // This updates the menu to show the correct checked item
 
                 // Update the UI to reflect the change
                 updateNumberButtonHighlights()
@@ -248,6 +307,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startNewGame() {
+        completionTextView.visibility = View.GONE
         // Generate the puzzle and solution
         val (puzzle, solution) = GameGenerator().generatePuzzle(difficultyLevel)
         puzzleBoard = puzzle
@@ -310,25 +370,34 @@ class MainActivity : AppCompatActivity() {
         updateNumberButtonHighlights()
     }
     private fun setupNumberButtons() {
-        val numberButtonsLayout = findViewById<LinearLayout>(R.id.footer)
+        // Target the correct container from the new layout
+        val numberButtonsLayout = findViewById<LinearLayout>(R.id.number_pad_container)
         if (numberButtonsLayout.childCount > 0) return
 
-        for (number in 1..9) {
-            // Inflate the custom layout for the button with a badge
-            val buttonLayout = layoutInflater.inflate(R.layout.number_with_badge, numberButtonsLayout, false)
 
+        // Calculate size in DP for the button
+        val desiredHeightInDp = 75
+        val desiredHeightInPixels = (desiredHeightInDp * resources.displayMetrics.density).toInt()
+
+        // Make button taller
+        numberButtonsLayout.layoutParams.height = desiredHeightInPixels
+
+        val buttonParams = LinearLayout.LayoutParams(
+            0, // Width = 0dp
+            LinearLayout.LayoutParams.MATCH_PARENT, // Height = MATCH_PARENT
+            1f // Weight = 1
+        )
+        for (number in 1..9) {
+            val buttonLayout = layoutInflater.inflate(R.layout.number_with_badge, numberButtonsLayout, false)
+            buttonLayout.layoutParams = buttonParams
+
+            // Your existing code to find views and set listeners
             val container = buttonLayout.findViewById<FrameLayout>(R.id.button_container)
             val numberText = buttonLayout.findViewById<TextView>(R.id.number_text)
             val badge = buttonLayout.findViewById<TextView>(R.id.badge_text_view)
-
             numberButtonContainers[number] = container
-
-            // Store the badge reference
             badgeTextViews[number] = badge
-
-            // Set text for number
             numberText.text = number.toString()
-
             container.setOnClickListener { onNumberButtonClick(number) }
             container.setOnLongClickListener {
                 onNumberButtonLongClick(number)
@@ -336,6 +405,19 @@ class MainActivity : AppCompatActivity() {
             }
             numberButtonsLayout.addView(buttonLayout)
         }
+    }
+
+    private fun onEraseButtonClick() {
+        if (selectedCell == null || selectedRow == -1) return
+
+        // Check if the cell is part of the original puzzle
+        val isOriginalNumber = puzzleBoard!![selectedRow][selectedCol] != 0
+        if (isOriginalNumber) {
+            return // Don't erase original numbers
+        }
+
+        selectedCell?.text = ""
+        updateBadgeCounts()
     }
     private fun selectCell(cell: TextView, row: Int, col: Int) {
 
@@ -358,6 +440,10 @@ class MainActivity : AppCompatActivity() {
         // Check if cell is selected and can be edited
         if (selectedCell == null || selectedRow == -1) return
 
+        if (puzzleBoard!![selectedRow][selectedCol] != 0) {
+            return
+        }
+
         val isCorrect = solutionBoard!![selectedRow][selectedCol] == number
         // Set the number in the TextView
         selectedCell?.text = number.toString()
@@ -368,9 +454,10 @@ class MainActivity : AppCompatActivity() {
         // Set text color based on correctness
         selectedCell?.setTextColor(if (isCorrect) Color.BLUE else Color.RED)
 
+        updateBadgeCounts()
+
         if (isCorrect) {
-            // Set text to blue for user input
-            updateBadgeCounts()
+            checkGameCompletion()
         }
         refreshAllCellHighlights()
 
@@ -446,7 +533,6 @@ class MainActivity : AppCompatActivity() {
         updateNumberButtonHighlights()
         refreshAllCellHighlights()
     }
-
     private fun updateNumberButtonHighlights() {
         for ((number, container) in numberButtonContainers) {
             val colorToApply = if (highlightMode == HighlightMode.ACTIVE_CELL) {
@@ -468,35 +554,39 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
     private fun updateBadgeCounts() {
-        if (cellViews == null) return
+        if (cellViews == null || solutionBoard == null) return
 
         val counts = IntArray(10) // index 0 is unused, 1-9 for numbers
 
-        // Count every number currently visible on the grid
+        // Count every correct number on the grid
         for (row in 0..8) {
             for (col in 0..8) {
                 val cellText = cellViews!![row][col].text
                 if (cellText.isNotEmpty()) {
                     val number = cellText.toString().toInt()
-                    counts[number]++
+                    if (number == solutionBoard!![row][col]) {
+                        counts[number]++
+                    }
                 }
             }
         }
 
-        // Now, update each badge
+        // Update badges and button states
         for (number in 1..9) {
             val count = counts[number]
             val badge = badgeTextViews[number]
+            val buttonContainer = numberButtonContainers[number]
 
             if (count == 9) {
-                // If all 9 instances of a number are found, hide the badge.
                 badge?.visibility = View.GONE
+                buttonContainer?.isEnabled = false
+                buttonContainer?.alpha = 0.5f // Make it look disabled
             } else {
-                // Otherwise, show the badge with the number left to find.
                 badge?.visibility = View.VISIBLE
                 badge?.text = (9 - count).toString()
+                buttonContainer?.isEnabled = true
+                buttonContainer?.alpha = 1.0f // Make it look enabled
             }
         }
     }
