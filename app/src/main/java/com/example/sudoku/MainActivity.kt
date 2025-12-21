@@ -49,9 +49,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var completionMessages: MutableList<String>
     private var currentCompletionMessageIndex = 0
     private lateinit var completionTextView: TextView
+    private var badgeColor: Int = Color.RED // Default badge color
 
     private enum class HighlightMode { ALL, ACTIVE_CELL }
-    private var highlightMode = HighlightMode.ALL
+    private var highlightMode = HighlightMode.ACTIVE_CELL
     private var isHighlightingEnabled = true
 
     // --------------------------------------------------
@@ -69,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         loadSingleHighlightColor()
         loadDifficulty()
         loadCompletionMessages()
+        loadBadgeColor()
 
         // Set toolbar to the action bar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
@@ -153,6 +155,11 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            R.id.action_set_badge_color -> {
+                showBadgeColorPicker()
+                return true
+            }
+
             R.id.action_set_difficulty -> {
                 showDifficultySlider()
                 return true
@@ -210,7 +217,7 @@ class MainActivity : AppCompatActivity() {
     private fun showNewGameConfirmation() {
         AlertDialog.Builder(this)
             .setTitle("Start New Game?")
-            .setMessage("Are you sure you want to start a new game? All current progress will be lost.")
+            .setMessage("Are you sure you want to start a new game?")
             .setPositiveButton("Yes") { _, _ ->
                 startNewGame()
             }
@@ -306,6 +313,37 @@ class MainActivity : AppCompatActivity() {
         singleHighlightColor = prefs.getInt("single_highlight_color", Color.YELLOW)
     }
 
+    private fun showBadgeColorPicker() {
+        ColorPickerDialog.Builder(this)
+            .setTitle("Choose Badge Color")
+            .setColorShape(ColorShape.SQAURE)
+            .setDefaultColor(badgeColor)
+            .setColorListener { selectedColor, _ ->
+                badgeColor = selectedColor
+                saveBadgeColor(selectedColor)
+                updateBadgeColors()
+            }
+            .show()
+    }
+
+    private fun saveBadgeColor(color: Int) {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        prefs.edit { putInt("badge_color", color) }
+    }
+
+    private fun loadBadgeColor() {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        badgeColor = prefs.getInt("badge_color", Color.RED)
+        updateBadgeColors()
+    }
+
+    private fun updateBadgeColors() {
+        for (badge in badgeTextViews.values) {
+            val background = badge.background as? GradientDrawable
+            background?.setColor(badgeColor)
+        }
+    }
+
     private fun startNewGame() {
         completionTextView.visibility = View.GONE
         // Generate the puzzle and solution
@@ -395,6 +433,8 @@ class MainActivity : AppCompatActivity() {
             val container = buttonLayout.findViewById<FrameLayout>(R.id.button_container)
             val numberText = buttonLayout.findViewById<TextView>(R.id.number_text)
             val badge = buttonLayout.findViewById<TextView>(R.id.badge_text_view)
+            val background = badge.background as? GradientDrawable
+            background?.setColor(badgeColor)
             numberButtonContainers[number] = container
             badgeTextViews[number] = badge
             numberText.text = number.toString()
@@ -420,7 +460,6 @@ class MainActivity : AppCompatActivity() {
         updateBadgeCounts()
     }
     private fun selectCell(cell: TextView, row: Int, col: Int) {
-
         // Update state to the newly selected cell
         selectedCell = cell
         selectedRow = row
@@ -433,9 +472,11 @@ class MainActivity : AppCompatActivity() {
             activeNumber = cellText.toInt()
         }
 
-        // Refresh the grid highlights
+        // Refresh the grid and button highlights
+        updateNumberButtonHighlights()
         refreshAllCellHighlights()
     }
+
     private fun onNumberButtonClick(number: Int) {
         // Check if cell is selected and can be edited
         if (selectedCell == null || selectedRow == -1) return
@@ -450,6 +491,7 @@ class MainActivity : AppCompatActivity() {
 
         // Update active number and refresh highlights
         activeNumber = number
+        updateNumberButtonHighlights()
 
         // Set text color based on correctness
         selectedCell?.setTextColor(if (isCorrect) Color.BLUE else Color.RED)
@@ -460,7 +502,6 @@ class MainActivity : AppCompatActivity() {
             checkGameCompletion()
         }
         refreshAllCellHighlights()
-
     }
     private fun updateCellBorder(cell: TextView, row: Int, col: Int, isSelected: Boolean, backgroundColor: Int = Color.WHITE ){
         val thick = 6
@@ -535,10 +576,9 @@ class MainActivity : AppCompatActivity() {
     }
     private fun updateNumberButtonHighlights() {
         for ((number, container) in numberButtonContainers) {
-            val colorToApply = if (highlightMode == HighlightMode.ACTIVE_CELL) {
-                singleHighlightColor
-            } else { // HighlightMode.ALL
-                numberHighlightMap[number] ?: Color.WHITE
+            val colorToApply = when (highlightMode) {
+                HighlightMode.ALL -> numberHighlightMap[number] ?: Color.WHITE
+                HighlightMode.ACTIVE_CELL -> if (number == activeNumber) singleHighlightColor else Color.WHITE
             }
 
             if (colorToApply == Color.WHITE) {
@@ -546,10 +586,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 val drawable = container.background?.mutate()
                 if (drawable is RippleDrawable) {
-                    val backgroundShape = drawable.getDrawable(1)
-                    if (backgroundShape is GradientDrawable) {
-                        backgroundShape.setColor(colorToApply)
-                    }
+                    (drawable.getDrawable(1) as? GradientDrawable)?.setColor(colorToApply)
                 }
             }
         }
@@ -603,20 +640,20 @@ class MainActivity : AppCompatActivity() {
                 if (isHighlightingEnabled && cellText.isNotEmpty()) {
                     val numberInCell = cellText.toInt()
 
-                    // Only highlight cells that match the active number
-                    if (activeNumber != -1 && numberInCell == activeNumber) {
-                        when (highlightMode) {
-                            HighlightMode.ALL -> {
-                                // Use the number-specific map, with single color as a fallback
-                                colorToApply = numberHighlightMap[numberInCell] ?: singleHighlightColor
-                            }
-                            HighlightMode.ACTIVE_CELL -> {
-                                // Use the single universal color
+                    when (highlightMode) {
+                        HighlightMode.ALL -> {
+                            // Highlight all numbers that have a color mapping
+                            colorToApply = numberHighlightMap[numberInCell] ?: Color.WHITE
+                        }
+                        HighlightMode.ACTIVE_CELL -> {
+                            // Highlight only the active number
+                            if (activeNumber != -1 && numberInCell == activeNumber) {
                                 colorToApply = singleHighlightColor
                             }
                         }
                     }
                 }
+
                 val isSelected = (selectedRow == r && selectedCol == c)
                 updateCellBorder(cell, r, c, isSelected, colorToApply)
             }

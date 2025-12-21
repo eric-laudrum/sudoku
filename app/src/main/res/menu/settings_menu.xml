@@ -30,6 +30,11 @@
         app:showAsAction="never"/>
 
     <item
+        android:id="@+id/action_set_badge_color"
+        android:title="Set Badge Colour"
+        app:showAsAction="never"/>
+
+    <item
         android:id="@+id/action_set_difficulty"
         android:title="Set Difficulty"
         app:showAsAction="never"/>

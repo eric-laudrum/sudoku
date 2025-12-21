@@ -48,16 +48,23 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="8dp"
-        android:gravity="center"
+        android:gravity="right"
+
+        android:layout_margin="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
         <Button
             android:id="@+id/eraser_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:backgroundTint="@color/white"
+            android:textColor="@color/black"
             android:text="Erase"
-            app:icon="@drawable/ic_eraser" />
+            app:icon="@drawable/ic_eraser"
+
+            />
     </LinearLayout>
 
     <!-- 4. Number Pad, positioned just ABOVE the footer controls -->
