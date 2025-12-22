@@ -12,7 +12,6 @@ import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.GridLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -49,7 +48,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var completionMessages: MutableList<String>
     private var currentCompletionMessageIndex = 0
     private lateinit var completionTextView: TextView
-    private var badgeColor: Int = Color.RED // Default badge color
+    private var defaultBadgeColor: Int = Color.RED // Default badge color
+    private lateinit var errorCountTextView: TextView
+    private var isErrorCountingEnabled = false
+    private var errorCount = 0
 
     private enum class HighlightMode { ALL, ACTIVE_CELL }
     private var highlightMode = HighlightMode.ACTIVE_CELL
@@ -64,13 +66,17 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         completionTextView = findViewById(R.id.completion_text)
+        errorCountTextView = findViewById(R.id.error_count_text)
 
         // Load and apply all saved preferences
         loadAndApplyBackgroundColor()
         loadSingleHighlightColor()
         loadDifficulty()
         loadCompletionMessages()
-        loadBadgeColor()
+        loadDefaultBadgeColor()
+        loadErrorCountingState()
+
+        errorCountTextView.visibility = if (isErrorCountingEnabled) View.VISIBLE else View.GONE
 
         // Set toolbar to the action bar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
@@ -115,6 +121,8 @@ class MainActivity : AppCompatActivity() {
         }
         menu.findItem(modeToSelect)?.isChecked = true
 
+        menu.findItem(R.id.action_count_errors)?.isChecked = isErrorCountingEnabled
+
         // Return true to display the menu
         return true
     }
@@ -144,6 +152,20 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            R.id.action_count_errors -> {
+                item.isChecked = !item.isChecked
+                isErrorCountingEnabled = item.isChecked
+                saveErrorCountingState(isErrorCountingEnabled)
+                if (isErrorCountingEnabled) {
+                    errorCount = 0
+                    updateErrorCountDisplay()
+                    errorCountTextView.visibility = View.VISIBLE
+                } else {
+                    errorCountTextView.visibility = View.GONE
+                }
+                return true
+            }
+
             R.id.action_set_single_highlight_color -> {
                 showSingleHighlightColorPicker()
                 return true
@@ -156,7 +178,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             R.id.action_set_badge_color -> {
-                showBadgeColorPicker()
+                showDefaultBadgeColorPicker()
                 return true
             }
 
@@ -313,39 +335,35 @@ class MainActivity : AppCompatActivity() {
         singleHighlightColor = prefs.getInt("single_highlight_color", Color.YELLOW)
     }
 
-    private fun showBadgeColorPicker() {
+    private fun showDefaultBadgeColorPicker() {
         ColorPickerDialog.Builder(this)
-            .setTitle("Choose Badge Color")
+            .setTitle("Choose Default Badge Color")
             .setColorShape(ColorShape.SQAURE)
-            .setDefaultColor(badgeColor)
+            .setDefaultColor(defaultBadgeColor)
             .setColorListener { selectedColor, _ ->
-                badgeColor = selectedColor
-                saveBadgeColor(selectedColor)
-                updateBadgeColors()
+                defaultBadgeColor = selectedColor
+                saveDefaultBadgeColor(selectedColor)
+                updateNumberButtonHighlights()
             }
             .show()
     }
 
-    private fun saveBadgeColor(color: Int) {
+    private fun saveDefaultBadgeColor(color: Int) {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
-        prefs.edit { putInt("badge_color", color) }
+        prefs.edit { putInt("default_badge_color", color) }
     }
 
-    private fun loadBadgeColor() {
+    private fun loadDefaultBadgeColor() {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
-        badgeColor = prefs.getInt("badge_color", Color.RED)
-        updateBadgeColors()
-    }
-
-    private fun updateBadgeColors() {
-        for (badge in badgeTextViews.values) {
-            val background = badge.background as? GradientDrawable
-            background?.setColor(badgeColor)
-        }
+        defaultBadgeColor = prefs.getInt("default_badge_color", Color.RED)
     }
 
     private fun startNewGame() {
         completionTextView.visibility = View.GONE
+        if (isErrorCountingEnabled) {
+            errorCount = 0
+            updateErrorCountDisplay()
+        }
         // Generate the puzzle and solution
         val (puzzle, solution) = GameGenerator().generatePuzzle(difficultyLevel)
         puzzleBoard = puzzle
@@ -353,6 +371,20 @@ class MainActivity : AppCompatActivity() {
 
         // Build the UI based on data just created.
         createBoard()
+    }
+
+    private fun updateErrorCountDisplay() {
+        errorCountTextView.text = "Errors: $errorCount"
+    }
+
+    private fun saveErrorCountingState(isEnabled: Boolean) {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        prefs.edit { putBoolean("error_counting_enabled", isEnabled) }
+    }
+
+    private fun loadErrorCountingState() {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        isErrorCountingEnabled = prefs.getBoolean("error_counting_enabled", false)
     }
 
     // --------------------------------------------------
@@ -434,7 +466,7 @@ class MainActivity : AppCompatActivity() {
             val numberText = buttonLayout.findViewById<TextView>(R.id.number_text)
             val badge = buttonLayout.findViewById<TextView>(R.id.badge_text_view)
             val background = badge.background as? GradientDrawable
-            background?.setColor(badgeColor)
+            background?.setColor(defaultBadgeColor)
             numberButtonContainers[number] = container
             badgeTextViews[number] = badge
             numberText.text = number.toString()
@@ -457,8 +489,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         selectedCell?.text = ""
+        activeNumber = -1
         updateBadgeCounts()
+        updateNumberButtonHighlights()
+        refreshAllCellHighlights()
     }
+
     private fun selectCell(cell: TextView, row: Int, col: Int) {
         // Update state to the newly selected cell
         selectedCell = cell
@@ -466,10 +502,12 @@ class MainActivity : AppCompatActivity() {
         selectedCol = col
 
         // If the selected cell has a number, update the active number for highlighting.
-        // If the cell is empty, the active number remains unchanged.
+        // If the cell is empty, reset the active number to remove highlights.
         val cellText = cell.text.toString()
-        if (cellText.isNotEmpty()) {
-            activeNumber = cellText.toInt()
+        activeNumber = if (cellText.isNotEmpty()) {
+            cellText.toInt()
+        } else {
+            -1
         }
 
         // Refresh the grid and button highlights
@@ -486,6 +524,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         val isCorrect = solutionBoard!![selectedRow][selectedCol] == number
+        if (!isCorrect && isErrorCountingEnabled) {
+            errorCount++
+            updateErrorCountDisplay()
+        }
         // Set the number in the TextView
         selectedCell?.text = number.toString()
 
@@ -576,19 +618,33 @@ class MainActivity : AppCompatActivity() {
     }
     private fun updateNumberButtonHighlights() {
         for ((number, container) in numberButtonContainers) {
-            val colorToApply = when (highlightMode) {
-                HighlightMode.ALL -> numberHighlightMap[number] ?: Color.WHITE
-                HighlightMode.ACTIVE_CELL -> if (number == activeNumber) singleHighlightColor else Color.WHITE
+            val numberSpecificColor = numberHighlightMap[number]
+
+            // Determine highlight color for the button background
+            val buttonHighlightColor = when (highlightMode) {
+                HighlightMode.ALL -> numberSpecificColor
+                HighlightMode.ACTIVE_CELL -> if (number == activeNumber) {
+                    numberSpecificColor ?: singleHighlightColor // Use specific color if available, else single highlight color
+                } else {
+                    null
+                }
             }
 
-            if (colorToApply == Color.WHITE) {
+            // Update button background
+            if (buttonHighlightColor == null || buttonHighlightColor == Color.WHITE) {
                 container.setBackgroundResource(R.drawable.button_background_white)
             } else {
                 val drawable = container.background?.mutate()
                 if (drawable is RippleDrawable) {
-                    (drawable.getDrawable(1) as? GradientDrawable)?.setColor(colorToApply)
+                    (drawable.getDrawable(0) as? GradientDrawable)?.setColor(buttonHighlightColor)
                 }
             }
+
+            // Update badge background
+            val badge = badgeTextViews[number]
+            val badgeBackground = badge?.background as? GradientDrawable
+            val badgeColorToShow = numberSpecificColor ?: defaultBadgeColor
+            badgeBackground?.setColor(badgeColorToShow)
         }
     }
     private fun updateBadgeCounts() {
@@ -640,15 +696,15 @@ class MainActivity : AppCompatActivity() {
                 if (isHighlightingEnabled && cellText.isNotEmpty()) {
                     val numberInCell = cellText.toInt()
 
-                    when (highlightMode) {
+                    colorToApply = when (highlightMode) {
                         HighlightMode.ALL -> {
-                            // Highlight all numbers that have a color mapping
-                            colorToApply = numberHighlightMap[numberInCell] ?: Color.WHITE
+                            numberHighlightMap[numberInCell] ?: Color.WHITE
                         }
                         HighlightMode.ACTIVE_CELL -> {
-                            // Highlight only the active number
                             if (activeNumber != -1 && numberInCell == activeNumber) {
-                                colorToApply = singleHighlightColor
+                                numberHighlightMap[activeNumber] ?: singleHighlightColor
+                            } else {
+                                Color.WHITE
                             }
                         }
                     }

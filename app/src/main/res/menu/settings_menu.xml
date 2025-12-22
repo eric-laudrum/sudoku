@@ -20,6 +20,12 @@
     </group>
 
     <item
+        android:id="@+id/action_count_errors"
+        android:title="Count Errors"
+        android:checkable="true"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_set_single_highlight_color"
         android:title="Set Main Highlight Colour"
         app:showAsAction="never"/>

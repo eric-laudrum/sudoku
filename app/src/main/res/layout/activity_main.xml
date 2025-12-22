@@ -22,26 +22,45 @@
         android:id="@+id/message_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+
         android:orientation="vertical"
-        android:gravity="center_horizontal"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
+
         app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Error count -->
         <TextView
-            android:id="@+id/completion_text"
+            android:id="@+id/error_count_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+
+            android:visibility="gone"
+            android:textColor="@android:color/black"
+            android:textSize="15sp"
+            tools:text="Errors: 0"
+            tools:visibility="visible"/>
+
+        <!-- Game over message -->
+        <TextView
+            android:id="@+id/completion_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
             android:visibility="gone"
             android:textColor="@android:color/holo_blue_dark"
             android:textSize="22sp"
             android:textStyle="bold"
-            tools:text="Success!"
-            tools:visibility="visible"/>
+            tools:text="You Win"
+            tools:visibility="visible"
+            android:layout_gravity="center"
+
+            />
     </LinearLayout>
 
-    <!-- 5. Control Buttons (Erase), at the very bottom of the screen -->
+    <!-- 5. Control Buttons (Erase) -->
     <LinearLayout
         android:id="@+id/footer_controls"
         android:layout_width="0dp"
