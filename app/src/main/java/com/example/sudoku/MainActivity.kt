@@ -5,6 +5,8 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
@@ -52,6 +54,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorCountTextView: TextView
     private var isErrorCountingEnabled = false
     private var errorCount = 0
+    private lateinit var timerTextView: TextView
+    private var isTimerVisible = false
+    private val handler = Handler(Looper.getMainLooper())
+    private var timeInSeconds = 0
+    private var isTimerRunning = false
+    private lateinit var difficultyTextView: TextView
 
     private enum class HighlightMode { ALL, ACTIVE_CELL }
     private var highlightMode = HighlightMode.ACTIVE_CELL
@@ -67,6 +75,8 @@ class MainActivity : AppCompatActivity() {
 
         completionTextView = findViewById(R.id.completion_text)
         errorCountTextView = findViewById(R.id.error_count_text)
+        timerTextView = findViewById(R.id.timer_text)
+        difficultyTextView = findViewById(R.id.difficulty_text)
 
         // Load and apply all saved preferences
         loadAndApplyBackgroundColor()
@@ -75,8 +85,11 @@ class MainActivity : AppCompatActivity() {
         loadCompletionMessages()
         loadDefaultBadgeColor()
         loadErrorCountingState()
+        loadTimerVisibility()
 
+        updateDifficultyDisplay()
         errorCountTextView.visibility = if (isErrorCountingEnabled) View.VISIBLE else View.GONE
+        timerTextView.visibility = if (isTimerVisible) View.VISIBLE else View.GONE
 
         // Set toolbar to the action bar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
@@ -122,6 +135,7 @@ class MainActivity : AppCompatActivity() {
         menu.findItem(modeToSelect)?.isChecked = true
 
         menu.findItem(R.id.action_count_errors)?.isChecked = isErrorCountingEnabled
+        menu.findItem(R.id.action_show_timer)?.isChecked = isTimerVisible
 
         // Return true to display the menu
         return true
@@ -162,6 +176,20 @@ class MainActivity : AppCompatActivity() {
                     errorCountTextView.visibility = View.VISIBLE
                 } else {
                     errorCountTextView.visibility = View.GONE
+                }
+                return true
+            }
+
+            R.id.action_show_timer -> {
+                item.isChecked = !item.isChecked
+                isTimerVisible = item.isChecked
+                saveTimerVisibility(isTimerVisible)
+                if (isTimerVisible) {
+                    timerTextView.visibility = View.VISIBLE
+                    startTimer()
+                } else {
+                    timerTextView.visibility = View.GONE
+                    stopTimer()
                 }
                 return true
             }
@@ -216,6 +244,7 @@ class MainActivity : AppCompatActivity() {
             currentCompletionMessageIndex = 0
         }
 
+        stopTimer()
         completionTextView.text = message
         completionTextView.visibility = View.VISIBLE
     }
@@ -262,6 +291,7 @@ class MainActivity : AppCompatActivity() {
                 val newDifficulty = slider.value.toInt()
                 difficultyLevel = newDifficulty
                 saveDifficulty(newDifficulty)
+                updateDifficultyDisplay()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -275,6 +305,10 @@ class MainActivity : AppCompatActivity() {
     private fun loadDifficulty() {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
         difficultyLevel = prefs.getInt("difficulty_level", 0)
+    }
+
+    private fun updateDifficultyDisplay() {
+        difficultyTextView.text = "Difficulty: $difficultyLevel/10"
     }
 
     private fun showBackgroundColorPicker() {
@@ -364,6 +398,12 @@ class MainActivity : AppCompatActivity() {
             errorCount = 0
             updateErrorCountDisplay()
         }
+
+        resetTimer()
+        if (isTimerVisible) {
+            startTimer()
+        }
+
         // Generate the puzzle and solution
         val (puzzle, solution) = GameGenerator().generatePuzzle(difficultyLevel)
         puzzleBoard = puzzle
@@ -385,6 +425,48 @@ class MainActivity : AppCompatActivity() {
     private fun loadErrorCountingState() {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
         isErrorCountingEnabled = prefs.getBoolean("error_counting_enabled", false)
+    }
+
+    private fun saveTimerVisibility(isVisible: Boolean) {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        prefs.edit { putBoolean("timer_visible", isVisible) }
+    }
+
+    private fun loadTimerVisibility() {
+        val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
+        isTimerVisible = prefs.getBoolean("timer_visible", false)
+    }
+
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            timeInSeconds++
+            updateTimerDisplay()
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+    private fun startTimer() {
+        if (!isTimerRunning) {
+            isTimerRunning = true
+            handler.post(timerRunnable)
+        }
+    }
+
+    private fun stopTimer() {
+        isTimerRunning = false
+        handler.removeCallbacks(timerRunnable)
+    }
+
+    private fun resetTimer() {
+        stopTimer()
+        timeInSeconds = 0
+        updateTimerDisplay()
+    }
+
+    private fun updateTimerDisplay() {
+        val minutes = timeInSeconds / 60
+        val seconds = timeInSeconds % 60
+        timerTextView.text = String.format("%02d:%02d", minutes, seconds)
     }
 
     // --------------------------------------------------

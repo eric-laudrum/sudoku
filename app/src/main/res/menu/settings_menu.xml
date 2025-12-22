@@ -26,6 +26,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_show_timer"
+        android:title="Show Timer"
+        android:checkable="true"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_set_single_highlight_color"
         android:title="Set Main Highlight Colour"
         app:showAsAction="never"/>
