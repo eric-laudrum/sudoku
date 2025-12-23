@@ -21,8 +21,8 @@
         android:top="2dp">
         <shape android:shape="rectangle">
             <solid android:color="@android:color/transparent" />
-            <!-- Yellow highlight -->
-            <stroke android:width="3dp" android:color="#FFEB3B" />
+            <!-- Black cell highlight -->
+            <stroke android:width="2dp" android:color="#000000" />
         </shape>
     </item>
 </layer-list>

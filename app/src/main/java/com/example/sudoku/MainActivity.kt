@@ -205,11 +205,6 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            R.id.action_set_badge_color -> {
-                showDefaultBadgeColorPicker()
-                return true
-            }
-
             R.id.action_set_difficulty -> {
                 showDifficultySlider()
                 return true
@@ -268,7 +263,7 @@ class MainActivity : AppCompatActivity() {
     private fun showNewGameConfirmation() {
         AlertDialog.Builder(this)
             .setTitle("Start New Game?")
-            .setMessage("Are you sure you want to start a new game?")
+            .setMessage("Do you want to start a new game now?")
             .setPositiveButton("Yes") { _, _ ->
                 startNewGame()
             }
@@ -300,11 +295,13 @@ class MainActivity : AppCompatActivity() {
     private fun saveDifficulty(level: Int) {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
         prefs.edit { putInt("difficulty_level", level) }
+        showNewGameConfirmation()
     }
 
     private fun loadDifficulty() {
         val prefs = getSharedPreferences("SudokuPrefs", MODE_PRIVATE)
         difficultyLevel = prefs.getInt("difficulty_level", 0)
+
     }
 
     private fun updateDifficultyDisplay() {
@@ -399,6 +396,7 @@ class MainActivity : AppCompatActivity() {
             updateErrorCountDisplay()
         }
 
+        // Reset game timer
         resetTimer()
         if (isTimerVisible) {
             startTimer()
@@ -498,7 +496,7 @@ class MainActivity : AppCompatActivity() {
                     // Player input
                     val isEditable = puzzleBoard!![row][col] ==0
                     if(isEditable){
-                        setTextColor(Color.BLUE) // tmp - player entered numbers are blue
+                        setTextColor(Color.BLACK)
                         setOnClickListener {
                             selectCell(this, row, col)
                         }

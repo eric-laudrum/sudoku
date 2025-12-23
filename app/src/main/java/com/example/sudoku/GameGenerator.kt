@@ -85,11 +85,6 @@ class GameGenerator {
                 board[row][col] = 0
 
                 // Check if the puzzle is still solvable with a unique solution.
-                // For simplicity, we'll skip this check in this implementation.
-                // In a real-world app, you'd need a robust solver here.
-
-                // If the puzzle remains valid (in a real-world scenario),
-                // then finalize the removal.
                 removedCount[num]++
                 totalRemoved++
             }

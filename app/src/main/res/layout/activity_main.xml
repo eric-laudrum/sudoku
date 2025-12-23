@@ -13,9 +13,13 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
+
+        app:layout_constraintTop_toTopOf="parent"
         app:title="SUDOKU"
+
         app:titleTextColor="@android:color/black"
-        app:layout_constraintTop_toTopOf="parent" />
+
+        tools:layout_editor_absoluteX="8dp" />
 
     <!-- 2. Stats Container, directly below the toolbar -->
     <RelativeLayout
@@ -37,19 +41,8 @@
             android:layout_alignParentStart="true"
             android:textColor="@android:color/black"
             android:textSize="18sp"
-            tools:text="Difficulty: 0/10" />
-
-        <TextView
-            android:id="@+id/error_count_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true"
-            android:visibility="gone"
-            android:textColor="@android:color/holo_red_dark"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            tools:text="Errors: 0"
-            tools:visibility="visible"/>
+            tools:text="Difficulty: 0/10"
+            />
 
         <TextView
             android:id="@+id/timer_text"
@@ -57,11 +50,25 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:visibility="gone"
-            android:textColor="@android:color/holo_blue_dark"
+            android:textColor="@android:color/black"
             android:textSize="18sp"
-            android:textStyle="bold"
             tools:text="00:00"
-            tools:visibility="visible"/>
+            tools:visibility="visible"
+            />
+
+        <TextView
+            android:id="@+id/error_count_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:visibility="gone"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            tools:text="Errors: 0"
+            tools:visibility="visible"
+            />
+
+
     </RelativeLayout>
 
     <!-- 3. Message Container, directly below the stats container -->
@@ -115,31 +122,35 @@
             />
     </LinearLayout>
 
-    <!-- 4. Number Pad, positioned just ABOVE the footer controls -->
-    <LinearLayout
-        android:id="@+id/number_pad_container"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:weightSum="9"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintBottom_toTopOf="@id/footer_controls"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
     <!-- 3. Sudoku Grid, filling the space between the messages and the number pad -->
     <GridLayout
         android:id="@+id/grid"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="8dp"
+
+        android:layout_margin="4dp"
         android:columnCount="9"
         android:rowCount="9"
+
         app:layout_constraintDimensionRatio="1:1"
-        app:layout_constraintTop_toBottomOf="@id/message_container"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintBottom_toTopOf="@id/number_pad_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 4. Number Pad, positioned just ABOVE the footer controls -->
+    <LinearLayout
+        android:id="@+id/number_pad_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+
+        android:orientation="horizontal"
+        android:weightSum="9"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="50dp"
+
+        app:layout_constraintBottom_toTopOf="@id/footer_controls"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
